@@ -1,6 +1,7 @@
 import streamlit as st
 from databricks.sdk.environments import Cloud
 from typing import Callable, Any
+from collections import OrderedDict
 
 def set_attribute_description(description: str):
     st.session_state['attribute_description'] = description
@@ -88,7 +89,19 @@ def _attribute_type(attribute_name: str, default_value_input: Callable[[], Any] 
 
 def spark_version():
     # Set up the default value input logic
-    options = [
+    # options = [
+    #     'auto:latest-lts',
+    #     'auto:latest',
+    #     'auto:latest-ml',
+    #     'auto:latest-lts-ml',
+    #     'auto:prev-major',
+    #     'auto:prev-major-ml',
+    #     'auto:prev-lts',
+    #     'auto:prev-lts-ml',
+    #     '** Specify version (e.g. 15.3.x-scala2.12)'
+    # ]
+    show_these_last = st.session_state['spark_versions']
+    special_options = [
         'auto:latest-lts',
         'auto:latest',
         'auto:latest-ml',
@@ -97,31 +110,30 @@ def spark_version():
         'auto:prev-major-ml',
         'auto:prev-lts',
         'auto:prev-lts-ml',
-        '** Specify version (e.g. 15.3.x-scala2.12)'
     ]
+    spark_versions = OrderedDict()
+    for o in special_options:
+        spark_versions[o] = f"** {o}"
+    spark_versions.update(show_these_last)
 
     def _default_value_input():
-        default_value = st.selectbox(
+        return st.selectbox(
             'Default Value',
-            options=options,
+            options=list(spark_versions),
             key="spark_version__default_value_select",
             index=None,
+            format_func=lambda x: spark_versions[x],
         )
-        if default_value == options[-1]:
-            spark_version_input = st.text_input('Spark Version', placeholder='15.3.x-scala2.12')
-            return spark_version_input
-        elif default_value:
-            return default_value
 
     _attribute_type('spark_version', _default_value_input)
 
     # If the selection type is `allowlist` or `blocklist`, we need to allow the user to add multiple values
-    # TODO: can we dynamically fetch all the possible values?
     if st.session_state['inputs']['type'] in ('allowlist', 'blocklist'):
         st.subheader(st.session_state['inputs']['type'].title() + ' Values')
+        # TODO: replace data_editor with a better UI for adding multiple values
         values = st.data_editor(
             data=[
-                {"spark_version": options[0]},
+                {"spark_version": special_options[0]},
             ],
             num_rows='dynamic',
             key='spark_version__values',
@@ -139,15 +151,24 @@ def spark_version():
     elif st.session_state['inputs']['type'] == 'fixed':
         fixed_value = st.selectbox(
             'Fixed Value',
-            options=options,
+            options=list(spark_versions),
             key="spark_version__fixed_value_select",
             index=None,
+            format_func=lambda x: spark_versions[x],
         )
-        if fixed_value == options[-1]:
-            spark_version_input = st.text_input('Spark Version', placeholder='15.3.x-scala2.12')
-            st.session_state['inputs']['value'] = spark_version_input
-        elif fixed_value:
-            st.session_state['inputs']['value'] = fixed_value
+        st.session_state['inputs']['value'] = fixed_value
+        # if fixed_value == options[-1]:
+        #     spark_versions = st.session_state['spark_versions']
+        #     spark_version_input = st.selectbox(
+        #         'Spark Version',
+        #         options=list(spark_versions.keys()),
+        #         key="spark_version__fixed_value_input",
+        #         index=None,
+        #         format_func=lambda x: spark_versions[x],
+        #     )
+        #     st.session_state['inputs']['value'] = spark_version_input
+        # elif fixed_value:
+        #     st.session_state['inputs']['value'] = fixed_value
 
 def autoscale_min_workers():
     _attribute_type(

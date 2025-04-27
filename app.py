@@ -4,7 +4,9 @@ from databricks.sdk.service.compute import Policy, PolicyFamily
 import streamlit as st
 from streamlit_extras.st_keyup import st_keyup
 import json
-import attributes as attrs
+from collections import OrderedDict
+
+from attributes import supported_attributes
 
 
 # Databricks config
@@ -45,11 +47,22 @@ def list_cluster_policies(cache_cursor: int) -> list[Policy]:
     w = workspace_client()
     return w.cluster_policies.list()
 
-@st.cache_data(ttl='1 hour', show_spinner='Loading policy families...')
+@st.cache_data(ttl='24 hours', show_spinner='Loading policy families...')
 def load_policy_families() -> list[PolicyFamily]:
     """List all policy families in the workspace"""
     w = workspace_client()
     return list(w.policy_families.list())
+
+@st.cache_data(ttl='24 hours', show_spinner='Loading Available Spark Versions...')
+def load_available_spark_versions() -> list[str]:
+    """List all available spark versions in the workspace"""
+    w = workspace_client()
+    versions = w.clusters.spark_versions().versions
+    st.session_state['spark_versions'] = OrderedDict({v.key: v.name for v in versions})
+    return st.session_state['spark_versions']
+
+if 'spark_versions' not in st.session_state:
+    st.session_state['spark_versions'] = load_available_spark_versions()
 
 def add_inputs_to_definition():
     # When using a Family, the definition itself is not editable, but the overrides are.
@@ -208,7 +221,7 @@ def editor_ui_container():
     st.write('#### :material/tune: Edit Attribute')
     st.selectbox(
         'Select an Attribute to Configure',
-        options=attrs.supported_attributes.keys(),
+        options=supported_attributes.keys(),
         key='attribute_name_select',
         on_change=clear_inputs,
         placeholder='Select an attribute to configure',
@@ -217,7 +230,7 @@ def editor_ui_container():
 
     # Render the corresponding UI input elements based on which attribute is selected
     if st.session_state.get('attribute_name_select'):
-        attrs.supported_attributes[st.session_state['attribute_name_select']]()
+        supported_attributes[st.session_state['attribute_name_select']]()
 
     st.button(
         'Add to Policy',
