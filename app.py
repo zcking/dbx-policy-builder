@@ -44,8 +44,9 @@ def list_cluster_policies(cache_cursor: int) -> list[Policy]:
 
 def add_inputs_to_definition():
     # Edge case for forbidden attributes
-    if st.session_state['inputs']['type'] == 'forbidden' and st.session_state['inputs'].get('value') == '':
-        st.session_state['inputs'].pop('value')
+    if st.session_state['inputs']['type'] == 'forbidden':
+        if st.session_state['inputs'].get('value') in (None, ''):
+            st.session_state['inputs'].pop('value')
 
     st.session_state['definition'][st.session_state['attribute_name_select']] = st.session_state['inputs']
     st.session_state['attribute_name_select'] = None
@@ -117,7 +118,7 @@ def start_new_policy_dialog():
         st.rerun() # nothing, just closes the dialog
 
 def main_ui_container():
-    st.write('#### :material/settings: Configure Policy')
+    st.write('#### :material/tune: Edit Attributes')
     st.selectbox(
         'Attribute Name',
         options=attrs.supported_attributes.keys(),
