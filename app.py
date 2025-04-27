@@ -54,6 +54,12 @@ def load_policy(policy: Policy):
     existing_policy_url = f"{cfg.host}/compute/policies/{st.session_state['editing_policy'].policy_id}"
     st.info(f"You are editing [{st.session_state['editing_policy'].name}]({existing_policy_url})")
 
+def clone_policy():
+    cloned_policy_name = st.session_state['editing_policy'].name
+    st.session_state['definition'] = json.loads(st.session_state['editing_policy'].definition)
+    st.session_state['editing_policy'] = None
+    st.info(f'**{cloned_policy_name}** cloned. You may continue making changes to the Policy, and click **Save Policy** to create a new policy without affecting the original.')
+
 # ===== Toast Notifications =====
 
 if st.session_state.get('newly_created_policy_id'):
@@ -176,15 +182,37 @@ def preview_policy_container():
     st.json(st.session_state['definition'], expanded=True)
 
 st.title('Databricks Cluster Policy Builder')
-st.write(f"##### [{cfg.host}]({cfg.host})")
-st.button(
-    'Reset Policy',
-    on_click=start_new_policy_dialog,
-    use_container_width=False,
-    type='secondary',
-)
-st.write('')
+top_buttons = st.columns(5)
+with top_buttons[0]:
+    st.link_button(
+        'Open Workspace',
+        url=cfg.host,
+        type='secondary',
+        icon=':material/open_in_new:',
+        help='Open the Databricks workspace in a new tab',
+        use_container_width=True,
+    )
+with top_buttons[1]:
+    st.button(
+        'Reset Policy',
+        on_click=start_new_policy_dialog,
+        use_container_width=True,
+        type='secondary',
+        help='Start building a new policy from scratch',
+        icon=':material/restart_alt:',
+    )
+with top_buttons[2]:
+    st.button(
+        'Clone Policy',
+        type='secondary',
+        use_container_width=True,
+        help='Clone an existing policy definition into a new policy',
+        icon=':material/content_copy:',
+        disabled=not st.session_state.get('editing_policy') or not st.session_state.get('definition'),
+        on_click=clone_policy,
+    )
 
+# Sidebar
 with st.sidebar:
     st.write('# :material/list: Cluster Policies')
     st.write('Select a policy to load its definition into the editor.')
@@ -213,8 +241,16 @@ main_col1, main_col2 = st.columns([0.6, 0.4], gap='small')
 with main_col1:
     with st.container(border=True):
         main_ui_container()
-    if st.button('Save Policy', type='primary', use_container_width=False):
+
+    if st.button(
+        'Save Policy',
+        type='primary',
+        use_container_width=False,
+        disabled=not st.session_state.get('definition'),
+        help='Save the current policy definition to the workspace',
+    ):
         create_policy_dialog()
+
 with main_col2:
     with st.container(border=False):
         preview_policy_container()
