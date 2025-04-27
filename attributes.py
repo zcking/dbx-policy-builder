@@ -1,7 +1,10 @@
 import streamlit as st
+from typing import Callable, Any
 
-def _attribute_type(attribute_name: str, range: bool = False, allow_list: bool = True, 
-                    block_list: bool = True, regex: bool = True, unlimited: bool = True) -> str:
+def _attribute_type(attribute_name: str, default_value_input: Callable[[], Any] = None,
+                    range: bool = False, allow_list: bool = True, 
+                    block_list: bool = True, regex: bool = True, 
+                    unlimited: bool = True) -> str:
     # Single select for the `type` of policy attribute to set.
     options = [
         'fixed',
@@ -12,19 +15,49 @@ def _attribute_type(attribute_name: str, range: bool = False, allow_list: bool =
         'blocklist' if block_list else None,
         'unlimited' if unlimited else None,
     ]
-    attribute_type = st.pills(
+
+    def _handle_attribute_type_change():
+        st.session_state['inputs'].clear()
+        if st.session_state[f'{attribute_name}__attribute_type'] in ('fixed', 'forbidden'):
+            # Fixed and forbidden attributes don't make sense to set a default value or make optional
+            st.session_state['toggle_options'] = ['Hide from UI']
+        else:
+            st.session_state['toggle_options'] = ['Set Default Value', 'Make Optional', 'Hide from UI']
+
+    attribute_type = st.radio(
         'Type',
         options=[option for option in options if option is not None],
-        default='fixed',
         key=f'{attribute_name}__attribute_type',
-        on_change=lambda: st.session_state['inputs'].clear(),
+        on_change=_handle_attribute_type_change,
+        horizontal=True,
     )
     st.session_state['inputs']['type'] = attribute_type
+
+    if default_value_input:
+        toggle_options = st.session_state['toggle_options']
+        toggles = st.pills(
+            label='Features',
+            key=f'{attribute_name}__toggle_group',
+            options=toggle_options,
+            selection_mode='multi',
+        )
+
+        # Set Default Value
+        if 'Set Default Value' in toggles:
+            default_value = default_value_input()
+            st.session_state['inputs']['defaultValue'] = default_value
+        elif 'defaultValue' in st.session_state['inputs']:
+            st.session_state['inputs'].pop('defaultValue')
+
+        # Optional
+        st.session_state['inputs']['isOptional'] = 'Make Optional' in toggles
+
+        # Hide from UI
+        st.session_state['inputs']['hidden'] = 'Hide from UI' in toggles
     return attribute_type
 
 def spark_version():
-    _attribute_type('spark_version')
-
+    # Set up the default value input logic
     options = [
         'auto:latest',
         'auto:latest-ml',
@@ -36,21 +69,7 @@ def spark_version():
         '** Specify version (e.g. 15.3.x-scala2.12)'
     ]
 
-    toggles = st.pills(
-        label='',
-        label_visibility='hidden',
-        key='spark_version__toggle_group',
-        options=[
-            'Default Value',
-            'Make Optional?',
-        ],
-        selection_mode='multi',
-        default=['Default Value'],
-        disabled=st.session_state['inputs']['type'] in ('fixed', 'forbidden'),
-    )
-
-    # Default value
-    if 'Default Value' in toggles:
+    def _default_value_input():
         default_value = st.selectbox(
             'Default Value',
             options=options,
@@ -59,14 +78,11 @@ def spark_version():
         )
         if default_value == options[-1]:
             spark_version_input = st.text_input('Spark Version', placeholder='15.3.x-scala2.12')
-            st.session_state['inputs']['defaultValue'] = spark_version_input
+            return spark_version_input
         elif default_value:
-            st.session_state['inputs']['defaultValue'] = default_value
-    elif 'defaultValue' in st.session_state['inputs']:
-        st.session_state['inputs'].pop('defaultValue')
+            return default_value
 
-    # Optional
-    st.session_state['inputs']['isOptional'] = 'Make Optional?' in toggles
+    _attribute_type('spark_version', _default_value_input)
 
     # If the selection type is `allowlist` or `blocklist`, we need to allow the user to add multiple values
     # TODO: can we dynamically fetch all the possible values?
@@ -90,91 +106,90 @@ def spark_version():
         regex_input = st.text_input('Regex Pattern', placeholder='^...$')
         st.session_state['inputs']['pattern'] = regex_input
     elif st.session_state['inputs']['type'] in ('fixed', 'forbidden'):
-        st.subheader('Value')
-        value_input = st.text_input('Value', placeholder='...')
-        st.session_state['inputs']['value'] = value_input
+        fixed_value = st.selectbox(
+            'Fixed Value',
+            options=options,
+            key="spark_version__fixed_value_select",
+            index=None,
+        )
+        if fixed_value == options[-1]:
+            spark_version_input = st.text_input('Spark Version', placeholder='15.3.x-scala2.12')
+            st.session_state['inputs']['value'] = spark_version_input
+        elif fixed_value:
+            st.session_state['inputs']['value'] = fixed_value
 
 def autoscale_min_workers():
-    _attribute_type('autoscale.min_workers', range=True, allow_list=False, block_list=False, regex=False)
-
-    toggles = st.pills(
-        label='',
-        label_visibility='hidden',
-        key='autoscale.min_workers__toggle_group',
-        options=[
-            'Default Value',
-            'Make Optional?',
-        ],
-        selection_mode='multi',
-        default=['Default Value'],
-        disabled=st.session_state['inputs']['type'] in ('fixed', 'forbidden'),
+    _attribute_type(
+        'autoscale.min_workers',
+        range=True,
+        allow_list=False,
+        block_list=False,
+        regex=False,
+        default_value_input=lambda: st.number_input('Default Value', min_value=0),
     )
-
-    # Default value
-    if 'Default Value' in toggles:
-        default_value = st.number_input('Default Value', min_value=0)
-        st.session_state['inputs']['defaultValue'] = default_value
-    elif 'defaultValue' in st.session_state['inputs']:
-        st.session_state['inputs'].pop('defaultValue')
-
-    # Optional
-    st.session_state['inputs']['isOptional'] = 'Make Optional?' in toggles
 
     if st.session_state['inputs']['type'] == 'range':
         col1, col2 = st.columns(2)
         with col1:
-            min_value = st.number_input('Min Value', min_value=0, key='autoscale.min_workers__min_value')
+            min_value = st.number_input('Min Value', min_value=0, max_value=100000, key='autoscale.min_workers__min_value')
         with col2:
-            max_value = st.number_input('Max Value', min_value=0, key='autoscale.min_workers__max_value')
+            max_value = st.number_input('Max Value', min_value=0, max_value=100000, key='autoscale.min_workers__max_value')
         st.session_state['inputs']['minValue'] = min_value
         st.session_state['inputs']['maxValue'] = max_value
     elif st.session_state['inputs']['type'] in ('fixed', 'forbidden'):
-        autoscale_min_workers_input = st.number_input('Fixed Value', min_value=0)
+        autoscale_min_workers_input = st.number_input('Fixed Value', min_value=0, max_value=100000, value=1)
         st.session_state['inputs']['value'] = autoscale_min_workers_input
 
-
 def autoscale_max_workers():
-    _attribute_type('autoscale.max_workers', range=True, allow_list=False, block_list=False, regex=False)
-
-    toggles = st.pills(
-        label='',
-        label_visibility='hidden',
-        key='autoscale.max_workers__toggle_group',
-        options=[
-            'Default Value',
-            'Make Optional?',
-        ],
-        selection_mode='multi',
-        default=['Default Value'],
-        disabled=st.session_state['inputs']['type'] in ('fixed', 'forbidden'),
+    _attribute_type(
+        'autoscale.max_workers',
+        range=True,
+        allow_list=False,
+        block_list=False,
+        regex=False,
+        default_value_input=lambda: st.number_input('Default Value', min_value=0),
     )
-
-    # Default value
-    if 'Default Value' in toggles:
-        default_value = st.number_input('Default Value', min_value=0)
-        st.session_state['inputs']['defaultValue'] = default_value
-    elif 'defaultValue' in st.session_state['inputs']:
-        st.session_state['inputs'].pop('defaultValue')
-
-    # Optional
-    st.session_state['inputs']['isOptional'] = 'Make Optional?' in toggles
 
     if st.session_state['inputs']['type'] == 'range':
         col1, col2 = st.columns(2)
         with col1:
-            min_value = st.number_input('Min Value', min_value=0, key='autoscale.max_workers__min_value')
+            min_value = st.number_input('Min Value', min_value=0, max_value=100000, key='autoscale.max_workers__min_value')
         with col2:
-            max_value = st.number_input('Max Value', min_value=0, key='autoscale.max_workers__max_value')
+            max_value = st.number_input('Max Value', min_value=0, max_value=100000, key='autoscale.max_workers__max_value')
         st.session_state['inputs']['minValue'] = min_value
         st.session_state['inputs']['maxValue'] = max_value
     elif st.session_state['inputs']['type'] in ('fixed', 'forbidden'):
-        autoscale_max_workers_input = st.number_input('Fixed Value', min_value=0)
+        autoscale_max_workers_input = st.number_input('Fixed Value', min_value=0, max_value=100000, value=4)
         st.session_state['inputs']['value'] = autoscale_max_workers_input
 
+def autotermination_minutes():
+    at = _attribute_type(
+        'autotermination_minutes',
+        range=True,
+        allow_list=False,
+        block_list=False,
+        regex=False,
+        default_value_input=lambda: st.number_input('Default Value', min_value=10, max_value=43200, value=60),
+    )
 
-# Define a map of attribute name to attribute function
+    if at == 'range':
+        col1, col2 = st.columns(2)
+        with col1:
+            min_value = st.number_input('Min Value', min_value=0, max_value=43200, key='autotermination_minutes__min_value')
+        with col2:
+            max_value = st.number_input('Max Value', min_value=0, max_value=43200, key='autotermination_minutes__max_value')
+        st.session_state['inputs']['minValue'] = min_value
+        st.session_state['inputs']['maxValue'] = max_value
+    elif at in ('fixed', 'forbidden'):
+        autotermination_minutes_input = st.number_input('Fixed Value', min_value=10, max_value=43200, value=60)
+        st.session_state['inputs']['value'] = autotermination_minutes_input
+
+# ===== Attribute UI Functions Map
 supported_attributes = {
-    'spark_version': spark_version,
     'autoscale.max_workers': autoscale_max_workers,
     'autoscale.min_workers': autoscale_min_workers,
+    'autotermination_minutes': autotermination_minutes,
+
+    # ...
+    'spark_version': spark_version,
 }

@@ -19,6 +19,8 @@ if 'definition' not in st.session_state:
     st.session_state['definition'] = {}
 if 'cache_cursor' not in st.session_state:
     st.session_state['cache_cursor'] = 0
+if 'toggle_options' not in st.session_state:
+    st.session_state['toggle_options'] = ['Hide from UI']
 
 def clear_inputs():
     st.session_state['inputs'] = {}
@@ -41,6 +43,10 @@ def list_cluster_policies(cache_cursor: int) -> list[Policy]:
     return w.cluster_policies.list()
 
 def add_inputs_to_definition():
+    # Edge case for forbidden attributes
+    if st.session_state['inputs']['type'] == 'forbidden' and st.session_state['inputs'].get('value') == '':
+        st.session_state['inputs'].pop('value')
+
     st.session_state['definition'][st.session_state['attribute_name_select']] = st.session_state['inputs']
     st.session_state['attribute_name_select'] = None
     clear_inputs()
