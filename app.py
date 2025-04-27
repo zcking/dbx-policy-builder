@@ -17,6 +17,8 @@ if 'inputs' not in st.session_state:
     st.session_state['inputs'] = {}
 if 'definition' not in st.session_state:
     st.session_state['definition'] = {}
+if 'overrides' not in st.session_state:
+    st.session_state['overrides'] = {}
 if 'cache_cursor' not in st.session_state:
     st.session_state['cache_cursor'] = 0
 if 'toggle_options' not in st.session_state:
@@ -43,17 +45,26 @@ def list_cluster_policies(cache_cursor: int) -> list[Policy]:
     return w.cluster_policies.list()
 
 def add_inputs_to_definition():
-    st.session_state['definition'][st.session_state['attribute_name_select']] = st.session_state['inputs']
+    # When using a Family, the definition itself is not editable, but the overrides are.
+    if st.session_state.get('policy_family_id'):
+        st.session_state['overrides'][st.session_state['attribute_name_select']] = st.session_state['inputs']
+    else:
+        st.session_state['definition'][st.session_state['attribute_name_select']] = st.session_state['inputs']
     st.session_state['attribute_name_select'] = None
     clear_inputs()
 
 def load_policy(policy: Policy):
     clear_inputs()
     st.session_state['definition'] = json.loads(policy.definition)
+    if policy.policy_family_definition_overrides:
+        st.session_state['overrides'] = json.loads(policy.policy_family_definition_overrides)
+    else:
+        st.session_state['overrides'] = {}
     st.session_state['editing_policy'] = policy
     st.session_state['max_clusters_per_user'] = policy.max_clusters_per_user
     st.session_state['policy_name'] = policy.name
     st.session_state['policy_description'] = policy.description
+    st.session_state['policy_family_id'] = policy.policy_family_id
     existing_policy_url = f"{cfg.host}/compute/policies/{st.session_state['editing_policy'].policy_id}"
     st.info(f"You are editing [{st.session_state['editing_policy'].name}]({existing_policy_url})", icon=':material/info:')
 
@@ -138,26 +149,28 @@ def create_policy_dialog():
     button_label = 'Create Policy' if not editing_policy else 'Update Policy'
     if st.button(button_label, key='submit_create_policy_button', use_container_width=True, disabled=not policy_name):
         w = workspace_client()
+        request_args = {
+            'name': policy_name,
+            'max_clusters_per_user': max_clusters_per_user,
+            'description': policy_description,
+        }
+        if st.session_state.get('policy_family_id'):
+            request_args['policy_family_id'] = st.session_state['policy_family_id']
+            request_args['policy_family_definition_overrides'] = json.dumps(st.session_state['overrides'])
+        else:
+            request_args['definition'] = json.dumps(st.session_state['definition'])
+
+        # Make the API call to create or update the policy
         if editing_policy:
-            w.cluster_policies.edit(
-                policy_id=editing_policy.policy_id,
-                name=policy_name,
-                max_clusters_per_user=max_clusters_per_user,
-                description=policy_description,
-                definition=json.dumps(st.session_state['definition'])
-            )
+            request_args['policy_id'] = editing_policy.policy_id
+            w.cluster_policies.edit(**request_args)
             st.session_state['newly_created_policy_id'] = editing_policy.policy_id
         else:
-            resp = w.cluster_policies.create(
-                name=policy_name,
-                max_clusters_per_user=max_clusters_per_user,
-                description=policy_description,
-                definition=json.dumps(st.session_state['definition'])
-            )
+            resp = w.cluster_policies.create(**request_args)
             st.session_state['newly_created_policy_id'] = resp.policy_id
 
-        st.session_state['newly_created_policy_name'] = policy_name
         # Refresh the policy list
+        st.session_state['newly_created_policy_name'] = policy_name
         st.session_state['cache_cursor'] += 1
         st.rerun()
 
@@ -197,7 +210,13 @@ def editor_ui_container():
 
 def preview_policy_container():
     st.write('#### :material/draft: Policy Preview')
-    st.json(st.session_state['definition'], expanded=True)
+    if st.session_state['overrides']:
+        st.write('###### Overrides')
+        st.json(st.session_state['overrides'], expanded=True)
+        st.write('###### Family Definition')
+        st.json(st.session_state['definition'], expanded=False)
+    else:
+        st.json(st.session_state['definition'], expanded=True)
 
 st.title('Databricks Cluster Policy Builder')
 top_buttons = st.columns(5)
@@ -234,7 +253,7 @@ with top_buttons[2]:
 policy_cols = st.columns([0.3, 0.7])
 with policy_cols[0]:
     st.text_input(
-        'Policy Name',
+        'Name',
         placeholder='My Policy',
         key='policy_name',
         value=st.session_state.get('editing_policy').name if st.session_state.get('editing_policy') else None,
@@ -249,12 +268,25 @@ with policy_cols[0]:
     )
 with policy_cols[1]:
     st.text_input(
-        'Policy Description',
+        'Description',
         placeholder='My Policy Description',
         key='policy_description',
         value=st.session_state.get('editing_policy').description if st.session_state.get('editing_policy') else None,
     )
-
+    policy_families = [
+        "personal-vm",
+        "power-user",
+        "shared-compute",
+        "job-cluster",
+        "shared-data-science",
+    ]
+    st.selectbox(
+        'Family',
+        options=policy_families,
+        key='policy_family_id',
+        index=policy_families.index(st.session_state.get('policy_family_id')) if st.session_state.get('policy_family_id') else None,
+        disabled=st.session_state.get('editing_policy').is_default if st.session_state.get('editing_policy') else False,
+    )
 
 # Sidebar
 with st.sidebar:
@@ -310,6 +342,6 @@ with main_col2:
         preview_policy_container()
 
 # Show the session state for debugging
-# st.json(st.session_state)
+st.json(st.session_state)
 
 
