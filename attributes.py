@@ -21,11 +21,16 @@ def _attribute_type(attribute_name: str, default_value_input: Callable[[], Any] 
 
     def _handle_attribute_type_change():
         st.session_state['inputs'].clear()
-        if st.session_state[f'{attribute_name}__attribute_type'] in ('fixed', 'forbidden'):
+        at = st.session_state[f'{attribute_name}__attribute_type']
+        if at in ('fixed', 'forbidden'):
             # Fixed and forbidden attributes don't make sense to set a default value or make optional
             st.session_state['toggle_options'] = ['Hide from UI']
+        elif at in ('allowlist', 'blocklist'):
+            st.session_state['toggle_options'] = ['Set Default Value', 'Make Optional']
+        elif at in ('regex', 'range', 'unlimited'):
+            st.session_state['toggle_options'] = ['Set Default Value', 'Make Optional']
         else:
-            st.session_state['toggle_options'] = ['Set Default Value', 'Make Optional', 'Hide from UI']
+            st.session_state['toggle_options'] = []
 
     if st.session_state.get('attribute_description'):
         st.write('Description')
@@ -57,10 +62,16 @@ def _attribute_type(attribute_name: str, default_value_input: Callable[[], Any] 
             st.session_state['inputs'].pop('defaultValue')
 
         # Optional
-        st.session_state['inputs']['isOptional'] = 'Make Optional' in toggles
+        if 'Make Optional' in toggles:
+            st.session_state['inputs']['isOptional'] = True
+        elif 'isOptional' in st.session_state['inputs']:
+            st.session_state['inputs'].pop('isOptional')
 
         # Hide from UI
-        st.session_state['inputs']['hidden'] = 'Hide from UI' in toggles
+        if 'Hide from UI' in toggles:
+            st.session_state['inputs']['hidden'] = True
+        elif 'hidden' in st.session_state['inputs']:
+            st.session_state['inputs'].pop('hidden')
     return attribute_type
 
 def spark_version():
@@ -112,7 +123,7 @@ def spark_version():
         st.subheader('Regex')
         regex_input = st.text_input('Regex Pattern', placeholder='^...$')
         st.session_state['inputs']['pattern'] = regex_input
-    elif st.session_state['inputs']['type'] in ('fixed', 'forbidden'):
+    elif st.session_state['inputs']['type'] == 'fixed':
         fixed_value = st.selectbox(
             'Fixed Value',
             options=options,
@@ -143,7 +154,7 @@ def autoscale_min_workers():
             max_value = st.number_input('Max Value', min_value=min_value, max_value=100000, key='autoscale.min_workers__max_value')
         st.session_state['inputs']['minValue'] = min_value
         st.session_state['inputs']['maxValue'] = max_value
-    elif st.session_state['inputs']['type'] in ('fixed', 'forbidden'):
+    elif st.session_state['inputs']['type'] == 'fixed':
         autoscale_min_workers_input = st.number_input('Fixed Value', min_value=0, max_value=100000, value=1)
         st.session_state['inputs']['value'] = autoscale_min_workers_input
 
@@ -165,7 +176,7 @@ def autoscale_max_workers():
             max_value = st.number_input('Max Value', min_value=min_value, max_value=100000, key='autoscale.max_workers__max_value')
         st.session_state['inputs']['minValue'] = min_value
         st.session_state['inputs']['maxValue'] = max_value
-    elif st.session_state['inputs']['type'] in ('fixed', 'forbidden'):
+    elif st.session_state['inputs']['type'] == 'fixed':
         autoscale_max_workers_input = st.number_input('Fixed Value', min_value=0, max_value=100000, value=4)
         st.session_state['inputs']['value'] = autoscale_max_workers_input
 
@@ -183,12 +194,12 @@ def autotermination_minutes():
     if at == 'range':
         col1, col2 = st.columns(2)
         with col1:
-            min_value = st.number_input('Min Value', min_value=0, max_value=43200, key='autotermination_minutes__min_value')
+            min_value = st.number_input('Min Value', min_value=10, max_value=43200, key='autotermination_minutes__min_value')
         with col2:
             max_value = st.number_input('Max Value', min_value=min_value, max_value=43200, key='autotermination_minutes__max_value')
         st.session_state['inputs']['minValue'] = min_value
         st.session_state['inputs']['maxValue'] = max_value
-    elif at in ('fixed', 'forbidden'):
+    elif at == 'fixed':
         autotermination_minutes_input = st.number_input('Fixed Value', min_value=10, max_value=43200, value=60)
         st.session_state['inputs']['value'] = autotermination_minutes_input
 
@@ -208,7 +219,7 @@ def aws_attributes_availability():
             key='aws_attributes.availability__values',
         )
         st.session_state['inputs']['values'] = values
-    else:
+    elif at == 'fixed':
         aws_attributes_availability_input = st.selectbox('Fixed Value', options=options, index=None)
         st.session_state['inputs']['value'] = aws_attributes_availability_input
 
@@ -253,7 +264,7 @@ def aws_attributes_ebs_volume_size():
             max_value = st.number_input('Max Value', min_value=min_value, max_value=16384, key='aws_attributes.ebs_volume_size__max_value')
         st.session_state['inputs']['minValue'] = min_value
         st.session_state['inputs']['maxValue'] = max_value
-    else:
+    elif at == 'fixed':
         aws_attributes_ebs_volume_size_input = st.number_input('Fixed Value', min_value=1, max_value=16384, value=100)
         st.session_state['inputs']['value'] = aws_attributes_ebs_volume_size_input
 

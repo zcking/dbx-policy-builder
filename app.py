@@ -43,11 +43,6 @@ def list_cluster_policies(cache_cursor: int) -> list[Policy]:
     return w.cluster_policies.list()
 
 def add_inputs_to_definition():
-    # Edge case for forbidden attributes
-    if st.session_state['inputs']['type'] == 'forbidden':
-        if st.session_state['inputs'].get('value') in (None, ''):
-            st.session_state['inputs'].pop('value')
-
     st.session_state['definition'][st.session_state['attribute_name_select']] = st.session_state['inputs']
     st.session_state['attribute_name_select'] = None
     clear_inputs()
@@ -118,7 +113,7 @@ def start_new_policy_dialog():
         st.rerun() # nothing, just closes the dialog
 
 def main_ui_container():
-    st.write('#### :material/tune: Edit Attributes')
+    st.write('#### :material/tune: Edit Attribute')
     st.selectbox(
         'Attribute Name',
         options=attrs.supported_attributes.keys(),
@@ -140,16 +135,16 @@ def main_ui_container():
     )
 
 def preview_policy_container():
-    st.write('#### :material/draft: Preview Policy')
+    st.write('#### :material/draft: Policy Preview')
     st.json(st.session_state['definition'], expanded=True)
 
 st.title('Databricks Cluster Policy Builder')
 st.write(f"##### [{cfg.host}]({cfg.host})")
 st.button(
-    'Start New Policy',
+    'Reset Policy',
     on_click=start_new_policy_dialog,
     use_container_width=False,
-    type='primary',
+    type='secondary',
 )
 st.write('')
 
@@ -181,13 +176,13 @@ main_col1, main_col2 = st.columns([0.6, 0.4], gap='small')
 with main_col1:
     with st.container(border=True):
         main_ui_container()
-    if st.button('Create Policy', type='primary', use_container_width=False):
+    if st.button('Save Policy', type='primary', use_container_width=False):
         create_policy_dialog()
 with main_col2:
     with st.container(border=False):
         preview_policy_container()
 
 # Show the session state for debugging
-# st.json(st.session_state)
+st.json(st.session_state)
 
 
