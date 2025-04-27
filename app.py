@@ -1,6 +1,6 @@
 from databricks.sdk.core import Config
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.compute import Policy
+from databricks.sdk.service.compute import Policy, PolicyFamily
 import streamlit as st
 from streamlit_extras.st_keyup import st_keyup
 import json
@@ -44,6 +44,12 @@ def list_cluster_policies(cache_cursor: int) -> list[Policy]:
     """List all cluster policies in the workspace"""
     w = workspace_client()
     return w.cluster_policies.list()
+
+@st.cache_data(ttl='1 hour', show_spinner='Loading policy families...')
+def load_policy_families() -> list[PolicyFamily]:
+    """List all policy families in the workspace"""
+    w = workspace_client()
+    return list(w.policy_families.list())
 
 def add_inputs_to_definition():
     # When using a Family, the definition itself is not editable, but the overrides are.
@@ -286,20 +292,17 @@ with policy_cols[1]:
         key='policy_description',
         value=st.session_state.get('editing_policy').description if st.session_state.get('editing_policy') else None,
     )
-    policy_families = [
-        "personal-vm",
-        "power-user",
-        "shared-compute",
-        "job-cluster",
-        "shared-data-science",
-    ]
+    policy_families = load_policy_families()
+    family_option_labels = {p.policy_family_id: p.name for p in policy_families}
+    family_options = list(family_option_labels.keys())
     st.selectbox(
         'Family',
-        options=policy_families,
+        options=family_options,
         key='policy_family_id',
         help='Select a family to use as a base for the policy. The policy will inherit the family definition, but you can override any attributes.',
-        index=policy_families.index(st.session_state.get('policy_family_id')) if st.session_state.get('policy_family_id') else None,
+        index=family_options.index(st.session_state.get('policy_family_id')) if st.session_state.get('policy_family_id') else None,
         disabled=st.session_state.get('editing_policy').is_default if st.session_state.get('editing_policy') else False,
+        format_func=lambda x: family_option_labels[x],
     )
 
 # Sidebar
