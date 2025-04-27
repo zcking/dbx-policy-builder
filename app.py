@@ -13,6 +13,7 @@ cfg = Config()
 # Initialize streamlit
 st.set_page_config(layout="wide")
 
+st.session_state['cloud'] = cfg.environment.cloud
 if 'inputs' not in st.session_state:
     st.session_state['inputs'] = {}
 if 'definition' not in st.session_state:
@@ -188,6 +189,11 @@ def start_new_policy_dialog():
         clear_inputs()
         st.session_state['definition'] = {}
         st.session_state['editing_policy'] = None
+        st.session_state['policy_family_id'] = None
+        st.session_state['overrides'] = {}
+        st.session_state['policy_name'] = None
+        st.session_state['policy_description'] = None
+        st.session_state['max_clusters_per_user'] = None
         st.rerun()
     if st.button('Cancel', use_container_width=True, type='secondary'):
         st.rerun() # nothing, just closes the dialog
@@ -212,6 +218,7 @@ def editor_ui_container():
         on_click=add_inputs_to_definition,
         type='primary',
         disabled=not st.session_state.get('attribute_name_select') or not st.session_state.get('inputs'),
+        help='Add the current attribute to the policy definition',
     )
 
 def preview_policy_container():
@@ -290,6 +297,7 @@ with policy_cols[1]:
         'Family',
         options=policy_families,
         key='policy_family_id',
+        help='Select a family to use as a base for the policy. The policy will inherit the family definition, but you can override any attributes.',
         index=policy_families.index(st.session_state.get('policy_family_id')) if st.session_state.get('policy_family_id') else None,
         disabled=st.session_state.get('editing_policy').is_default if st.session_state.get('editing_policy') else False,
     )

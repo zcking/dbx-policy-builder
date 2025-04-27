@@ -1,4 +1,5 @@
 import streamlit as st
+from databricks.sdk.environments import Cloud
 from typing import Callable, Any
 
 def set_attribute_description(description: str):
@@ -36,12 +37,22 @@ def _attribute_type(attribute_name: str, default_value_input: Callable[[], Any] 
         st.write('Description')
         st.write(st.session_state['attribute_description'])
 
+    if st.session_state['cloud'] == Cloud.AWS:
+        policy_types_docs_url = "https://docs.databricks.com/aws/en/admin/clusters/policy-definition#supported-policy-types"
+    elif st.session_state['cloud'] == Cloud.GCP:
+        policy_types_docs_url = "https://docs.databricks.com/gcp/en/admin/clusters/policy-definition#supported-policy-types"
+    elif st.session_state['cloud'] == Cloud.AZURE:
+        policy_types_docs_url = "https://learn.microsoft.com/en-us/azure/databricks/admin/clusters/policy-definition#supported-policy-types"
+
     attribute_type = st.radio(
         'Type',
         options=[option for option in options if option is not None],
         key=f'{attribute_name}__attribute_type',
         on_change=_handle_attribute_type_change,
         horizontal=True,
+        help=f"""Select the policy type for this attribute. See 
+        [Policy Types]({policy_types_docs_url})
+        for more information.""",
     )
     st.session_state['inputs']['type'] = attribute_type
 
@@ -52,6 +63,7 @@ def _attribute_type(attribute_name: str, default_value_input: Callable[[], Any] 
             key=f'{attribute_name}__toggle_group',
             options=toggle_options,
             selection_mode='multi',
+            help='Toggle optional features for the attribute',
         )
 
         # Set Default Value
@@ -77,6 +89,7 @@ def _attribute_type(attribute_name: str, default_value_input: Callable[[], Any] 
 def spark_version():
     # Set up the default value input logic
     options = [
+        'auto:latest-lts',
         'auto:latest',
         'auto:latest-ml',
         'auto:latest-lts-ml',
