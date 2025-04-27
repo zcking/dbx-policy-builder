@@ -108,14 +108,14 @@ def create_policy_dialog():
     policy_name = st.text_input(
         'Policy Name',
         placeholder='My Policy',
-        key='policy_name',
-        value=editing_policy.name if editing_policy else None,
+        key='final_policy_name',
+        value=st.session_state.get('policy_name'),
     )
     policy_description = st.text_input(
         'Policy Description',
         placeholder='My Policy Description',
-        key='policy_description',
-        value=editing_policy.description if editing_policy else None,
+        key='final_policy_description',
+        value=st.session_state.get('policy_description'),
     )
 
     # Add a button to create the policy
@@ -155,10 +155,10 @@ def start_new_policy_dialog():
     if st.button('Cancel', use_container_width=True, type='secondary'):
         st.rerun() # nothing, just closes the dialog
 
-def main_ui_container():
+def editor_ui_container():
     st.write('#### :material/tune: Edit Attribute')
     st.selectbox(
-        'Attribute Name',
+        'Select an Attribute to Configure',
         options=attrs.supported_attributes.keys(),
         key='attribute_name_select',
         on_change=clear_inputs,
@@ -212,6 +212,24 @@ with top_buttons[2]:
         on_click=clone_policy,
     )
 
+# Top-level policy inputs
+policy_cols = st.columns([0.3, 0.7])
+with policy_cols[0]:
+    st.text_input(
+        'Policy Name',
+        placeholder='My Policy',
+        key='policy_name',
+        value=st.session_state.get('editing_policy').name if st.session_state.get('editing_policy') else None,
+    )
+with policy_cols[1]:
+    st.text_input(
+        'Policy Description',
+        placeholder='My Policy Description',
+        key='policy_description',
+        value=st.session_state.get('editing_policy').description if st.session_state.get('editing_policy') else None,
+    )
+
+
 # Sidebar
 with st.sidebar:
     st.write('# :material/list: Cluster Policies')
@@ -240,7 +258,7 @@ with st.sidebar:
 main_col1, main_col2 = st.columns([0.6, 0.4], gap='small')
 with main_col1:
     with st.container(border=True):
-        main_ui_container()
+        editor_ui_container()
 
     if st.button(
         'Save Policy',
