@@ -55,6 +55,11 @@ def add_inputs_to_definition():
 
 def load_policy(policy: Policy):
     clear_inputs()
+    # Make sure we have the most recent data for the policy
+    with st.spinner('Loading policy...'):
+        w = workspace_client()
+        policy = w.cluster_policies.get(policy.policy_id)
+
     st.session_state['definition'] = json.loads(policy.definition)
     if policy.policy_family_definition_overrides:
         st.session_state['overrides'] = json.loads(policy.policy_family_definition_overrides)
@@ -163,6 +168,7 @@ def create_policy_dialog():
         # Make the API call to create or update the policy
         if editing_policy:
             request_args['policy_id'] = editing_policy.policy_id
+            request_args['libraries'] = editing_policy.libraries
             w.cluster_policies.edit(**request_args)
             st.session_state['newly_created_policy_id'] = editing_policy.policy_id
         else:
@@ -342,6 +348,6 @@ with main_col2:
         preview_policy_container()
 
 # Show the session state for debugging
-st.json(st.session_state)
+# st.json(st.session_state)
 
 
