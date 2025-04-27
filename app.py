@@ -58,11 +58,19 @@ def load_policy(policy: Policy):
 
 if st.session_state.get('newly_created_policy_id'):
     new_policy_url = f"{cfg.host}/compute/policies/{st.session_state['newly_created_policy_id']}"
-    st.success(
-        f"Policy created: [{st.session_state['newly_created_policy_name']}]({new_policy_url})",
-        icon=':material/check_circle:',
-    )
+    if st.session_state.get('editing_policy'):
+        st.success(
+            f"Policy updated: [{st.session_state['editing_policy'].name}]({new_policy_url})",
+            icon=':material/check_circle:',
+        )
+    else:
+        st.success(
+            f"Policy created: [{st.session_state['newly_created_policy_name']}]({new_policy_url})",
+            icon=':material/check_circle:',
+        )
+    st.session_state['editing_policy'] = None
     st.session_state['newly_created_policy_id'] = None
+    st.session_state['newly_created_policy_name'] = None
     st.session_state['definition'] = {}
 
 # ===== UI =====
@@ -72,30 +80,59 @@ if st.session_state.get('newly_created_policy_id'):
 # `value`, `values`, `pattern`, `minValue`, `maxValue` depending on the type.
 
 # Popup dialog to create/submit the Policy to the workspace
-@st.dialog('Create Policy')
+@st.dialog('Create/Update Policy')
 def create_policy_dialog():
-    _message = f"""
-    By clicking "Create Policy", the policy will be created in the workspace at:
-    {cfg.host}/compute/policies
-    """
+    editing_policy = st.session_state.get('editing_policy')
+    if editing_policy:
+        existing_policy_url = f"{cfg.host}/compute/policies/{editing_policy.policy_id}"
+        _message = f"""
+        By submitting, the [{editing_policy.name}]({existing_policy_url}) policy will be updated.
+        """
+    else:
+        _message = f"""
+        By submitting, the policy will be created in the workspace at:
+        {cfg.host}/compute/policies
+        """
     st.write(_message)
 
     st.write('#### View Policy JSON:')
     st.json(st.session_state['definition'], expanded=False)
 
     # Input the policy name
-    policy_name = st.text_input('Policy Name', placeholder='My Policy', key='policy_name')
+    policy_name = st.text_input(
+        'Policy Name',
+        placeholder='My Policy',
+        key='policy_name',
+        value=editing_policy.name if editing_policy else None,
+    )
+    policy_description = st.text_input(
+        'Policy Description',
+        placeholder='My Policy Description',
+        key='policy_description',
+        value=editing_policy.description if editing_policy else None,
+    )
 
     # Add a button to create the policy
-    if st.button('Create Policy', use_container_width=True, disabled=not policy_name):
+    button_label = 'Create Policy' if not editing_policy else 'Update Policy'
+    if st.button(button_label, key='submit_create_policy_button', use_container_width=True, disabled=not policy_name):
         w = workspace_client()
-        resp = w.cluster_policies.create(
-            name=policy_name,
-            definition=json.dumps(st.session_state['definition'])
-        )
-        st.session_state['newly_created_policy_id'] = resp.policy_id
+        if editing_policy:
+            w.cluster_policies.edit(
+                policy_id=editing_policy.policy_id,
+                name=policy_name,
+                description=policy_description,
+                definition=json.dumps(st.session_state['definition'])
+            )
+            st.session_state['newly_created_policy_id'] = editing_policy.policy_id
+        else:
+            resp = w.cluster_policies.create(
+                name=policy_name,
+                description=policy_description,
+                definition=json.dumps(st.session_state['definition'])
+            )
+            st.session_state['newly_created_policy_id'] = resp.policy_id
+
         st.session_state['newly_created_policy_name'] = policy_name
-        
         # Refresh the policy list
         st.session_state['cache_cursor'] += 1
         st.rerun()
@@ -183,6 +220,6 @@ with main_col2:
         preview_policy_container()
 
 # Show the session state for debugging
-st.json(st.session_state)
+# st.json(st.session_state)
 
 
