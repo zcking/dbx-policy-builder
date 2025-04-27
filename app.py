@@ -51,14 +51,20 @@ def load_policy(policy: Policy):
     clear_inputs()
     st.session_state['definition'] = json.loads(policy.definition)
     st.session_state['editing_policy'] = policy
+    st.session_state['max_clusters_per_user'] = policy.max_clusters_per_user
+    st.session_state['policy_name'] = policy.name
+    st.session_state['policy_description'] = policy.description
     existing_policy_url = f"{cfg.host}/compute/policies/{st.session_state['editing_policy'].policy_id}"
-    st.info(f"You are editing [{st.session_state['editing_policy'].name}]({existing_policy_url})")
+    st.info(f"You are editing [{st.session_state['editing_policy'].name}]({existing_policy_url})", icon=':material/info:')
 
 def clone_policy():
     cloned_policy_name = st.session_state['editing_policy'].name
     st.session_state['definition'] = json.loads(st.session_state['editing_policy'].definition)
     st.session_state['editing_policy'] = None
-    st.info(f'**{cloned_policy_name}** cloned. You may continue making changes to the Policy, and click **Save Policy** to create a new policy without affecting the original.')
+    st.info(
+        f'**{cloned_policy_name}** cloned. You may continue making changes to the Policy, and click **Save Policy** to create a new policy without affecting the original.',
+        icon=':material/info:',
+    )
 
 # ===== Toast Notifications =====
 
@@ -117,6 +123,16 @@ def create_policy_dialog():
         key='final_policy_description',
         value=st.session_state.get('policy_description'),
     )
+    max_clusters_per_user = st.number_input(
+        'Max Clusters Per User',
+        min_value=0,
+        max_value=10000,
+        help='The maximum number of clusters a user can have active with this policy at a time.',
+        key='final_max_clusters_per_user',
+        value=st.session_state.get('max_clusters_per_user'),
+    )
+    if max_clusters_per_user == 0:
+        max_clusters_per_user = None
 
     # Add a button to create the policy
     button_label = 'Create Policy' if not editing_policy else 'Update Policy'
@@ -126,6 +142,7 @@ def create_policy_dialog():
             w.cluster_policies.edit(
                 policy_id=editing_policy.policy_id,
                 name=policy_name,
+                max_clusters_per_user=max_clusters_per_user,
                 description=policy_description,
                 definition=json.dumps(st.session_state['definition'])
             )
@@ -133,6 +150,7 @@ def create_policy_dialog():
         else:
             resp = w.cluster_policies.create(
                 name=policy_name,
+                max_clusters_per_user=max_clusters_per_user,
                 description=policy_description,
                 definition=json.dumps(st.session_state['definition'])
             )
@@ -221,6 +239,14 @@ with policy_cols[0]:
         key='policy_name',
         value=st.session_state.get('editing_policy').name if st.session_state.get('editing_policy') else None,
     )
+    st.number_input(
+        'Max Clusters Per User',
+        min_value=0,
+        max_value=10000,
+        help='The maximum number of clusters a user can have active with this policy at a time. Set to 0 for no limit',
+        key='max_clusters_per_user',
+        value=st.session_state.get('editing_policy').max_clusters_per_user if st.session_state.get('editing_policy') else None,
+    )
 with policy_cols[1]:
     st.text_input(
         'Policy Description',
@@ -235,7 +261,17 @@ with st.sidebar:
     st.write('# :material/list: Cluster Policies')
     st.write('Select a policy to load its definition into the editor.')
     search_query = st_keyup("Policy Name/ID", placeholder="Type to search...", debounce=200)
-    
+
+    if st.button(
+        'Refresh',
+        use_container_width=True,
+        type='primary',
+        help='Refresh the list of policies from the workspace',
+        icon=':material/refresh:',
+    ):
+        st.session_state['cache_cursor'] += 1
+        st.rerun()
+
     with st.spinner('Loading policies...'):
         policies = list_cluster_policies(st.session_state['cache_cursor'])
 
