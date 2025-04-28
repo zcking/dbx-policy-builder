@@ -61,8 +61,36 @@ def load_available_spark_versions() -> list[str]:
     st.session_state['spark_versions'] = OrderedDict({v.key: v.name for v in versions})
     return st.session_state['spark_versions']
 
-if 'spark_versions' not in st.session_state:
-    st.session_state['spark_versions'] = load_available_spark_versions()
+st.session_state['spark_versions'] = load_available_spark_versions()
+
+@st.cache_data(ttl='1 hour', show_spinner='Loading instance profiles...')
+def load_instance_profiles():
+    """List all instance profiles in the workspace"""
+    w = workspace_client()
+    return [i.instance_profile_arn for i in w.instance_profiles.list()]
+
+st.session_state['instance_profiles'] = load_instance_profiles()
+
+@st.cache_data(ttl='24 hours', show_spinner=False)
+def load_zones():
+    w = workspace_client()
+    return w.clusters.list_zones().zones
+
+st.session_state['zones'] = load_zones()
+
+@st.cache_data(ttl='24 hours', show_spinner='Loading node types...')
+def load_node_types():
+    w = workspace_client()
+    return [n.node_type_id for n in w.clusters.list_node_types().node_types]
+
+st.session_state['node_types'] = load_node_types()
+
+@st.cache_data(ttl='1 hour', show_spinner='Loading Instance Pools...')
+def load_instance_pools():
+    w = workspace_client()
+    return {p.instance_pool_id: p.instance_pool_name for p in w.instance_pools.list()}
+
+st.session_state['instance_pools'] = load_instance_pools()
 
 def add_inputs_to_definition():
     # When using a Family, the definition itself is not editable, but the overrides are.

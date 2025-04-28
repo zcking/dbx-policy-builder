@@ -129,6 +129,52 @@ def gen_number_attribute_ui(attribute_name: str, _min_value: int, _max_value: in
             key=f'{attribute_name}__fixed_value_input',
         )
 
+def gen_string_attribute_ui(attribute_name: str, 
+                            _options: list[str] | None = None,
+                            _placeholder: str = 'Enter a value',
+                            _format_func: Callable[[Any], Any] | None = str):
+    def _default_handler():
+        if _options:
+            return st.selectbox('Default Value', options=_options, index=None, format_func=_format_func)
+        else:
+            return st.text_input('Default Value', placeholder=_placeholder)
+
+    at = _attribute_type(
+        attribute_name,
+        range=False,
+        allow_list=True,
+        block_list=True,
+        regex=True,
+        default_value_input=_default_handler,
+    )
+    if at in ('allowlist', 'blocklist'):
+        if _options:
+            values = st.multiselect(
+                'Values',
+                options=_options,
+                key=f'{attribute_name}__values',
+                format_func=_format_func,
+            )
+            st.session_state['inputs']['values'] = values
+        else:
+            values = st.data_editor(
+                data=[
+                    {"value": _placeholder},
+                ],
+                num_rows='dynamic',
+                key=f'{attribute_name}__values',
+            )
+            st.session_state['inputs']['values'] = [row['value'] for row in values]
+    elif at == 'fixed':
+        if _options:
+            fixed_value = st.selectbox('Fixed Value', options=_options, index=None, format_func=_format_func)
+        else:
+            fixed_value = st.text_input('Fixed Value', placeholder=_placeholder)
+        st.session_state['inputs']['value'] = fixed_value
+    elif at == 'regex':
+        regex_input = st.text_input('Regex Pattern', placeholder='^...$')
+        st.session_state['inputs']['pattern'] = regex_input
+
 # ===== Individual Attribute UI Functions =====
 
 def spark_version():
@@ -219,22 +265,11 @@ def autotermination_minutes():
 def aws_attributes_availability():
     set_attribute_description('Controls AWS availability (SPOT, ON_DEMAND, or SPOT_WITH_FALLBACK)')
     options = ['ON_DEMAND', 'SPOT', 'SPOT_WITH_FALLBACK']
-
-    at = _attribute_type(
-        'aws_attributes.availability',
-        regex=False,
-        default_value_input=lambda: st.selectbox('Default Value', options=options, index=None),
+    gen_string_attribute_ui(
+        attribute_name='aws_attributes.availability',
+        _options=options,
+        _placeholder='ON_DEMAND',
     )
-    if at in ('allowlist', 'blocklist'):
-        values = st.multiselect(
-            'Values',
-            options=options,
-            key='aws_attributes.availability__values',
-        )
-        st.session_state['inputs']['values'] = values
-    elif at == 'fixed':
-        aws_attributes_availability_input = st.selectbox('Fixed Value', options=options, index=None)
-        st.session_state['inputs']['value'] = aws_attributes_availability_input
 
 def aws_attributes_ebs_volume_count():
     set_attribute_description('The number of AWS EBS volumes.')
@@ -254,14 +289,222 @@ def aws_attributes_ebs_volume_size():
         _default_value=100,
     )
 
+def aws_attributes_ebs_volume_type():
+    set_attribute_description('The type of AWS EBS volumes.')
+    options = [
+        'GENERAL_PURPOSE_SSD',
+        'THROUGHPUT_OPTIMIZED_HDD',
+    ]
+    gen_string_attribute_ui(
+        attribute_name='aws_attributes.ebs_volume_type',
+        _options=options,
+        _placeholder=options[0] if options else 'GENERAL_PURPOSE_SSD',
+    )
+
 def aws_attributes_first_on_demand():
-    set_attribute_description('Controls how many instances are requested on-demand before requesting SPOT instances.')
+    set_attribute_description('Controls the number of nodes to put on on-demand instances.')
     gen_number_attribute_ui(
         attribute_name='aws_attributes.first_on_demand',
         _min_value=0,
         _max_value=100000,
         _default_value=1,
     )
+
+def aws_attributes_instance_profile_arn():
+    set_attribute_description('The ARN of the instance profile to use for the cluster.')
+    options = st.session_state['instance_profiles']
+    gen_string_attribute_ui(
+        attribute_name='aws_attributes.instance_profile_arn',
+        _options=options,
+        _placeholder='arn:aws:iam::123456789012:instance-profile/my-instance-profile',
+    )
+
+def aws_attributes_spot_bid_price_percent():
+    set_attribute_description('Controls the maximum price for AWS spot instances.')
+    gen_number_attribute_ui(
+        attribute_name='aws_attributes.spot_bid_price_percent',
+        _min_value=1,
+        _max_value=100,
+        _default_value=100,
+    )
+
+def aws_attributes_zone_id():
+    set_attribute_description('The AWS zone ID to use for the cluster.')
+    options = st.session_state['zones']
+    gen_string_attribute_ui(
+        attribute_name='aws_attributes.zone_id',
+        _options=options,
+        _placeholder=options[0] if options else 'us-east-1a',
+    )
+
+def cluster_log_conf_path():
+    set_attribute_description('The destination URL of the log files. This can also be a Volume.')
+    gen_string_attribute_ui(
+        attribute_name='cluster_log_conf.path',
+        _placeholder='/dbfs/cluster-logs',
+    )
+
+def cluster_log_conf_region():
+    set_attribute_description('The region of the log files, if using cloud storage.')
+    options = st.session_state['regions']
+    gen_string_attribute_ui(
+        attribute_name='cluster_log_conf.region',
+        _placeholder=options[0] if options else 'us-east-1',
+        _options=options,
+    )
+
+def cluster_log_conf_type():
+    set_attribute_description('The type of log destination.')
+    options = [
+        'S3',
+        'VOLUMES',
+        'DBFS',
+        'NONE',
+    ]
+    gen_string_attribute_ui(
+        attribute_name='cluster_log_conf.type',
+        _options=options,
+        _placeholder=options[0] if options else 'NONE',
+    )
+
+def cluster_name():
+    set_attribute_description('The name of the cluster.')
+    gen_string_attribute_ui(
+        attribute_name='cluster_name',
+        _placeholder='my-cluster',
+    )
+
+def data_security_mode():
+    options = [
+        'NONE',
+        'SINGLE_USER',
+        'USER_ISOLATION',
+        # Following are deprecated:
+        # 'LEGACY_TABLE_ACL',
+        # 'LEGACY_PASSTHROUGH',
+        # 'LEGACY_SINGLE_USER',
+        # 'LEGACY_SINGLE_USER_STANDARD',
+    ]
+    set_attribute_description("""
+        Sets the access mode of the cluster. Unity Catalog requires `SINGLE_USER` or 
+        `USER_ISOLATION` (Standard access mode in the UI). A value of `NONE` means no
+        security features are enabled.
+
+        [Learn more](https://docs.databricks.com/aws/en/compute/configure#access-modes) about data security modes.  
+    """)
+    gen_string_attribute_ui(
+        attribute_name='data_security_mode',
+        _options=options,
+        _placeholder='SINGLE_USER',
+    )
+
+def docker_image_basic_auth_password():
+    set_attribute_description('The password for the Databricks Container Services image basic authentication.')
+    gen_string_attribute_ui(
+        attribute_name='docker_image.basic_auth.password',
+        _placeholder='password',
+    )
+
+def docker_image_basic_auth_username():
+    set_attribute_description('The user name for the Databricks Container Services image basic authentication.')
+    gen_string_attribute_ui(
+        attribute_name='docker_image.basic_auth.username',
+        _placeholder='username',
+    )
+
+def docker_image_url():
+    set_attribute_description('Controls the Databricks Container Services image URL. When hidden, removes the Databricks Container Services section from the UI.')
+    gen_string_attribute_ui(
+        attribute_name='docker_image.url',
+        _placeholder='docker.io/...',
+    )
+
+def driver_node_type_id():
+    set_attribute_description('The node type of the driver.')
+    options = st.session_state['node_types']
+    gen_string_attribute_ui(
+        attribute_name='driver_node_type_id',
+        _options=options,
+        _placeholder=options[0] if options else 'i3.xlarge',
+    )
+
+def node_type_id():
+    set_attribute_description('The node type of the worker.')
+    options = st.session_state['node_types']
+    gen_string_attribute_ui(
+        attribute_name='node_type_id',
+        _options=options,
+        _placeholder=options[0] if options else 'i3.xlarge',
+    )
+
+def instance_pool_id():
+    set_attribute_description('''
+        Controls the pool used by worker nodes if `driver_instance_pool_id` is also defined,
+        or for all cluster nodes otherwise. If you use pools for worker nodes, you must also
+        use pools for the driver node. When hidden, removes pool selection from the UI.
+    ''')
+    options = list(st.session_state['instance_pools'].keys())
+    gen_string_attribute_ui(
+        attribute_name='instance_pool_id',
+        _options=options,
+        _placeholder=options[0] if options else '...',
+        _format_func=lambda x: f"{st.session_state['instance_pools'][x]} ({x})",
+    )
+
+def num_workers():
+    set_attribute_description('The number of worker nodes in the cluster.')
+    gen_number_attribute_ui(
+        attribute_name='num_workers',
+        _min_value=0,
+        _max_value=100000,
+        _default_value=1,
+    )
+
+def runtime_engine():
+    set_attribute_description('Determines whether the cluster uses Photon or not. Possible values are `PHOTON` or `STANDARD`.')
+    options = ['STANDARD', 'PHOTON']
+    gen_string_attribute_ui(
+        attribute_name='runtime_engine',
+        _options=options,
+        _placeholder=options[0] if options else 'STANDARD',
+    )
+
+def single_user_name():
+    set_attribute_description('The name of the single user.')
+    gen_string_attribute_ui(
+        attribute_name='single_user_name',
+        _placeholder='user@example.com',
+    )
+
+def dbus_per_hour():
+    set_attribute_description("""
+        Calculated attribute representing the maximum DBUs a resource can use
+        on an hourly basis including the driver node. This metric is a direct way
+        to control cost at the individual compute level. Use with range limitation.
+    """)
+    gen_number_attribute_ui(
+        attribute_name='dbus_per_hour',
+        _min_value=1,
+        _max_value=1000000,
+        _default_value=10,
+    )
+
+def cluster_type():
+    set_attribute_description("""
+        Represents the type of cluster that can be created.
+        Use with range limitation.
+                              
+        Allow or block specified types of compute to be created from the policy.
+        If the all-purpose value is not allowed, the policy is not shown in the all-purpose create compute UI.
+        If the job value is not allowed, the policy is not shown in the create job compute UI.
+    """)
+    options = ['all-purpose', 'job', 'dlt']
+    gen_string_attribute_ui(
+        attribute_name='cluster_type',
+        _options=options,
+        _placeholder=options[0] if options else 'all-purpose',
+    )
+
 
 # ===== Attribute UI Functions Map
 supported_attributes = {
@@ -271,7 +514,37 @@ supported_attributes = {
     'aws_attributes.availability': aws_attributes_availability,
     'aws_attributes.ebs_volume_count': aws_attributes_ebs_volume_count,
     'aws_attributes.ebs_volume_size': aws_attributes_ebs_volume_size,
+    'aws_attributes.ebs_volume_type': aws_attributes_ebs_volume_type,
     'aws_attributes.first_on_demand': aws_attributes_first_on_demand,
-    # ...
+    'aws_attributes.instance_profile_arn': aws_attributes_instance_profile_arn,
+    'aws_attributes.spot_bid_price_percent': aws_attributes_spot_bid_price_percent,
+    'aws_attributes.zone_id': aws_attributes_zone_id,
+    'cluster_log_conf.path': cluster_log_conf_path,
+    'cluster_log_conf.region': cluster_log_conf_region,
+    'cluster_log_conf.type': cluster_log_conf_type,
+    'cluster_name': cluster_name,
+    'data_security_mode': data_security_mode,
+    'docker_image.basic_auth.password': docker_image_basic_auth_password,
+    'docker_image.basic_auth.username': docker_image_basic_auth_username,
+    'docker_image.url': docker_image_url,
+    'driver_node_type_id': driver_node_type_id,
+    'node_type_id': node_type_id,
+    'instance_pool_id': instance_pool_id,
+    'num_workers': num_workers,
+    'runtime_engine': runtime_engine,
+    'single_user_name': single_user_name,
     'spark_version': spark_version,
+    'dbus_per_hour': dbus_per_hour,
+    'cluster_type': cluster_type,
 }
+
+# TODO: special ones
+# custom_tags.*
+# enable_elastic_disk
+# enable_local_disk_encryption
+# init_scripts.*.
+# spark_conf.*
+# spark_env_vars.*
+# ssh_public_keys.*
+# workload_type.clients.jobs
+# workload_type.clients.notebooks
