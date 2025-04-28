@@ -70,6 +70,8 @@ def add_inputs_to_definition():
         st.session_state['overrides'][st.session_state['attribute_name_select']] = st.session_state['inputs']
     else:
         st.session_state['definition'][st.session_state['attribute_name_select']] = st.session_state['inputs']
+    attribute_name = st.session_state['attribute_name_select']
+    st.session_state.pop(f'{attribute_name}__attribute_type')
     st.session_state['attribute_name_select'] = None
     clear_inputs()
 
@@ -90,8 +92,6 @@ def load_policy(policy: Policy):
     st.session_state['policy_name'] = policy.name
     st.session_state['policy_description'] = policy.description
     st.session_state['policy_family_id'] = policy.policy_family_id
-    existing_policy_url = f"{cfg.host}/compute/policies/{st.session_state['editing_policy'].policy_id}"
-    st.info(f"You are editing [{st.session_state['editing_policy'].name}]({existing_policy_url})", icon=':material/info:')
 
 def clone_policy():
     cloned_policy_name = st.session_state['editing_policy'].name
@@ -120,6 +120,10 @@ if st.session_state.get('newly_created_policy_id'):
     st.session_state['newly_created_policy_id'] = None
     st.session_state['newly_created_policy_name'] = None
     st.session_state['definition'] = {}
+
+if st.session_state.get('editing_policy'):
+    existing_policy_url = f"{cfg.host}/compute/policies/{st.session_state['editing_policy'].policy_id}"
+    st.info(f"You are editing [{st.session_state['editing_policy'].name}]({existing_policy_url})", icon=':material/info:')
 
 # ===== UI =====
 
@@ -221,7 +225,7 @@ def editor_ui_container():
     st.write('#### :material/tune: Edit Attribute')
     st.selectbox(
         'Select an Attribute to Configure',
-        options=supported_attributes.keys(),
+        options=list(supported_attributes.keys()),
         key='attribute_name_select',
         on_change=clear_inputs,
         placeholder='Select an attribute to configure',
@@ -373,5 +377,3 @@ with main_col2:
 
 # Show the session state for debugging
 # st.json(st.session_state)
-
-
