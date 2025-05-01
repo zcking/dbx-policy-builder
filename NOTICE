@@ -1,0 +1,17 @@
+Copyright (2025) Zachary King
+
+This Software includes software developed by Zachary King, or MakeWithData (https://makewithdata.tech) and its use is subject to the included LICENSE file.
+
+This Software contains code from the following open source projects, licensed under the Apache 2.0 license:
+
+databricks/databricks-sdk-py - https://github.com/databricks/databricks-sdk-py
+Copyright 2023 Databricks, Inc.
+License - https://github.com/databricks/databricks-sdk-py/blob/main/LICENSE
+
+streamlit/streamlit - https://github.com/streamlit/streamlit
+Copyright streamlit authors
+License - https://github.com/streamlit/streamlit/blob/develop/LICENSE
+
+arnaudmiribel/streamlit-extras - https://github.com/arnaudmiribel/streamlit-extras
+Copyright streamlit-extras authors
+License - https://github.com/arnaudmiribel/streamlit-extras/blob/main/LICENSE

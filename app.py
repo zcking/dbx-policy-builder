@@ -325,7 +325,6 @@ with policy_cols[0]:
         'Name',
         placeholder='My Policy',
         key='policy_name',
-        value=st.session_state.get('editing_policy').name if st.session_state.get('editing_policy') else None,
     )
     st.number_input(
         'Max Clusters Per User',
