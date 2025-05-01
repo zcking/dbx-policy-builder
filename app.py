@@ -26,6 +26,17 @@ if 'cache_cursor' not in st.session_state:
     st.session_state['cache_cursor'] = 0
 if 'toggle_options' not in st.session_state:
     st.session_state['toggle_options'] = ['Hide from UI']
+if 'max_clusters_per_user' not in st.session_state:
+    st.session_state['max_clusters_per_user'] = None
+if 'policy_name' not in st.session_state:
+    st.session_state['policy_name'] = None
+if 'policy_description' not in st.session_state:
+    st.session_state['policy_description'] = None
+if 'policy_family_id' not in st.session_state:
+    st.session_state['policy_family_id'] = None
+if 'editing_policy' not in st.session_state:
+    st.session_state['editing_policy'] = None
+    
 
 def clear_inputs():
     st.session_state['inputs'] = {}
@@ -35,10 +46,10 @@ def clear_inputs():
 
 @st.cache_resource(show_spinner='Talking to your Databricks workspace...')
 def workspace_client() -> WorkspaceClient:
-    user_token = st.context.headers.get('X-Forwarded-Access-Token')
+    # user_token = st.context.headers.get('X-Forwarded-Access-Token')
     return WorkspaceClient(
-        host=cfg.host,
-        token=user_token
+        # host=cfg.host,
+        # token=user_token
     )
 
 @st.cache_data(ttl='1 hour', show_spinner='Discovering cluster policies...')
@@ -164,6 +175,8 @@ if st.session_state.get('editing_policy'):
 # Each attribute has a `type`. It may also have a `defaultValue`, `hidden`, `isOptional`,
 # `value`, `values`, `pattern`, `minValue`, `maxValue` depending on the type.
 
+st.info(f"Hello {st.context.headers.get('X-Forwarded-Email')}!")
+
 # Popup dialog to create/submit the Policy to the workspace
 @st.dialog('Create/Update Policy')
 def create_policy_dialog():
@@ -235,6 +248,10 @@ def create_policy_dialog():
         # Refresh the policy list
         st.session_state['newly_created_policy_name'] = policy_name
         st.session_state['cache_cursor'] += 1
+        st.session_state['policy_name'] = None
+        st.session_state['policy_description'] = None
+        st.session_state['max_clusters_per_user'] = None
+        st.session_state['policy_family_id'] = None
         st.rerun()
 
 @st.dialog('Start New Policy')
@@ -332,14 +349,12 @@ with policy_cols[0]:
         max_value=10000,
         help='The maximum number of clusters a user can have active with this policy at a time. Set to 0 for no limit',
         key='max_clusters_per_user',
-        value=st.session_state.get('editing_policy').max_clusters_per_user if st.session_state.get('editing_policy') else None,
     )
 with policy_cols[1]:
     st.text_input(
         'Description',
         placeholder='My Policy Description',
         key='policy_description',
-        value=st.session_state.get('editing_policy').description if st.session_state.get('editing_policy') else None,
     )
     policy_families = load_policy_families()
     family_option_labels = {p.policy_family_id: p.name for p in policy_families}

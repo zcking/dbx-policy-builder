@@ -48,7 +48,7 @@ databricks apps deploy dbx-policy-builder
 
 The app will be available in your Databricks workspace under the Compute >> Apps section. It may take a few minutes for the App compute to spin up the first time.
 
-> **Note:** in Databricks Apps, this app is built to use the viewing user's permissions, not your permissions as the deployer. This ensures secure access that aligns with users' normal level of access within the workspace.
+> **Note:** once your app is deployed, you should note the service principal ID that gets generated for it. This can be found in the workspace UI. You may then add this policy to your `admins` group in the workspace; this will allow the app to access all policies. In the future we will work to add [On-Behalf-Of User Tokens](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/app-development#add-on-behalf-of-user-authorization-to-a-databricks-app) so stay tuned!
 
 ## Usage
 
