@@ -175,6 +175,19 @@ def gen_string_attribute_ui(attribute_name: str,
         regex_input = st.text_input('Regex Pattern', placeholder='^...$')
         st.session_state['inputs']['pattern'] = regex_input
 
+def gen_boolean_attribute_ui(attribute_name: str, default_value: bool = False):
+    at = _attribute_type(
+        attribute_name,
+        range=False,
+        allow_list=False,
+        block_list=False,
+        regex=False,
+        default_value_input=lambda: st.checkbox('Default Value', value=default_value),
+    )
+    if at == 'fixed':
+        st.session_state['inputs']['value'] = st.checkbox('Enabled', value=default_value)
+
+
 # ===== Individual Attribute UI Functions =====
 
 def spark_version():
@@ -505,6 +518,39 @@ def cluster_type():
         _placeholder=options[0] if options else 'all-purpose',
     )
 
+def enable_elastic_disk():
+    set_attribute_description('Controls whether the cluster uses autoscaling local disk.')
+    gen_boolean_attribute_ui(
+        attribute_name='enable_elastic_disk',
+        default_value=False,
+    )
+
+def enable_local_disk_encryption():
+    set_attribute_description('Controls whether the cluster uses local disk encryption.')
+    gen_boolean_attribute_ui(
+        attribute_name='enable_local_disk_encryption',
+        default_value=False,
+    )
+
+def workload_type_jobs():
+    set_attribute_description('''
+        Defines whether the compute resource can be used for jobs. 
+        See [Prevent compute from being used with jobs](https://docs.databricks.com/aws/en/admin/clusters/policy-definition#workload).
+    ''')
+    gen_boolean_attribute_ui(
+        attribute_name='workload_type.clients.jobs',
+        default_value=True,
+    )
+
+def workload_type_notebooks():
+    set_attribute_description('''
+        Defines whether the compute resource can be used for notebooks. 
+        See [Prevent compute from being used with notebooks](https://docs.databricks.com/aws/en/admin/clusters/policy-definition#workload).
+    ''')
+    gen_boolean_attribute_ui(
+        attribute_name='workload_type.clients.notebooks',
+        default_value=True,
+    )
 
 # ===== Attribute UI Functions Map
 supported_attributes = {
@@ -536,15 +582,15 @@ supported_attributes = {
     'spark_version': spark_version,
     'dbus_per_hour': dbus_per_hour,
     'cluster_type': cluster_type,
+    'enable_elastic_disk': enable_elastic_disk,
+    'enable_local_disk_encryption': enable_local_disk_encryption,
+    'workload_type.clients.jobs': workload_type_jobs,
+    'workload_type.clients.notebooks': workload_type_notebooks,
 }
 
 # TODO: special ones
 # custom_tags.*
-# enable_elastic_disk
-# enable_local_disk_encryption
 # init_scripts.*.
 # spark_conf.*
 # spark_env_vars.*
 # ssh_public_keys.*
-# workload_type.clients.jobs
-# workload_type.clients.notebooks
