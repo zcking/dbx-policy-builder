@@ -93,14 +93,19 @@ def load_instance_pools():
 st.session_state['instance_pools'] = load_instance_pools()
 
 def add_inputs_to_definition():
+    # Certain attributes, like array attributes and custom tags, have itemized naming.
+    attribute_name = st.session_state['attribute_name_select']
+    if st.session_state.get('override_attribute_name_select'):
+        attribute_name = st.session_state['override_attribute_name_select']
+
     # When using a Family, the definition itself is not editable, but the overrides are.
     if st.session_state.get('policy_family_id'):
-        st.session_state['overrides'][st.session_state['attribute_name_select']] = st.session_state['inputs']
+        st.session_state['overrides'][attribute_name] = st.session_state['inputs']
     else:
-        st.session_state['definition'][st.session_state['attribute_name_select']] = st.session_state['inputs']
-    attribute_name = st.session_state['attribute_name_select']
+        st.session_state['definition'][attribute_name] = st.session_state['inputs']
     st.session_state.pop(f'{attribute_name}__attribute_type')
     st.session_state['attribute_name_select'] = None
+    st.session_state['override_attribute_name_select'] = None
     clear_inputs()
 
 def load_policy(policy: Policy):

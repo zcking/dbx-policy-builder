@@ -187,6 +187,22 @@ def gen_boolean_attribute_ui(attribute_name: str, default_value: bool = False):
     if at == 'fixed':
         st.session_state['inputs']['value'] = st.checkbox('Enabled', value=default_value)
 
+def gen_array_string_attribute_ui(attribute_name: str):
+    if st.checkbox('Apply policy to all values'):
+        st.session_state['override_attribute_name_select'] = attribute_name
+        gen_string_attribute_ui(
+            attribute_name=attribute_name,
+            _placeholder='/dbfs/...',
+        )
+    else:
+        index = st.number_input('Apply policy to value at index {X}', min_value=0, max_value=100000, value=0)
+        if index >= 0:
+            indexed_attribute_name = attribute_name.replace('*', str(index))
+            st.session_state['override_attribute_name_select'] = indexed_attribute_name
+            gen_string_attribute_ui(
+                attribute_name=indexed_attribute_name,
+                _placeholder='/dbfs/...',
+            )
 
 # ===== Individual Attribute UI Functions =====
 
@@ -552,6 +568,68 @@ def workload_type_notebooks():
         default_value=True,
     )
 
+def custom_tags():
+    set_attribute_description('''
+        Defines a custom tag for the cluster.
+        See [Custom tags](https://docs.databricks.com/aws/en/admin/clusters/policy-definition#custom-tags).
+    ''')
+    tag_name = st.text_input('Tag Name', placeholder='TagName')
+
+    if tag_name:
+        st.session_state['override_attribute_name_select'] = f'custom_tags.{tag_name}'
+        gen_string_attribute_ui(
+            attribute_name=f'custom_tags.{tag_name}',
+            _placeholder='TagValue',
+        )
+
+def spark_conf():
+    set_attribute_description('''
+        Control specific Spark configuration values.
+    ''')
+    conf_key = st.text_input('Spark Conf Key', placeholder='spark.executor.memory')
+    if conf_key:
+        st.session_state['override_attribute_name_select'] = f'spark_conf.{conf_key}'
+        gen_string_attribute_ui(
+            attribute_name=f'spark_conf.{conf_key}',
+            _placeholder='8g',
+        )
+
+def spark_env_vars():
+    set_attribute_description('''
+        Control specific Spark environment variable.
+    ''')
+    env_var = st.text_input('Spark Env Var', placeholder='SPARK_ENV_VAR')
+    if env_var:
+        st.session_state['override_attribute_name_select'] = f'spark_env_vars.{env_var}'
+        gen_string_attribute_ui(
+            attribute_name=f'spark_env_vars.{env_var}',
+            _placeholder='Value',
+        )
+
+def ssh_public_keys():
+    set_attribute_description('Enforce authorized SSH keys for cluster access.')
+    gen_array_string_attribute_ui('ssh_public_keys.*')
+
+def init_scripts_workspace_destination():
+    set_attribute_description('The workspace path of the init script.')
+    gen_array_string_attribute_ui('init_scripts.*.workspace.destination')
+
+def init_scripts_volumes_destination():
+    set_attribute_description('The volume path of the init script.')
+    gen_array_string_attribute_ui('init_scripts.*.volumes.destination')
+
+def init_scripts_s3_destination():
+    set_attribute_description('The S3 path of the init script.')
+    gen_array_string_attribute_ui('init_scripts.*.s3.destination')
+
+def init_scripts_file_destination():
+    set_attribute_description('The file path of the init script.')
+    gen_array_string_attribute_ui('init_scripts.*.file.destination')
+
+def init_scripts_s3_region():
+    set_attribute_description('The region of the S3 path of the init script.')
+    gen_array_string_attribute_ui('init_scripts.*.s3.region')
+
 # ===== Attribute UI Functions Map
 supported_attributes = {
     'autoscale.max_workers': autoscale_max_workers,
@@ -586,11 +664,13 @@ supported_attributes = {
     'enable_local_disk_encryption': enable_local_disk_encryption,
     'workload_type.clients.jobs': workload_type_jobs,
     'workload_type.clients.notebooks': workload_type_notebooks,
+    'custom_tags': custom_tags,
+    'spark_conf.*': spark_conf,
+    'spark_env_vars.*': spark_env_vars,
+    'ssh_public_keys.*': ssh_public_keys,
+    'init_scripts.*.workspace.destination': init_scripts_workspace_destination,
+    'init_scripts.*.volumes.destination': init_scripts_volumes_destination,
+    'init_scripts.*.s3.destination': init_scripts_s3_destination,
+    'init_scripts.*.file.destination': init_scripts_file_destination,
+    'init_scripts.*.s3.region': init_scripts_s3_region,
 }
-
-# TODO: special ones
-# custom_tags.*
-# init_scripts.*.
-# spark_conf.*
-# spark_env_vars.*
-# ssh_public_keys.*
