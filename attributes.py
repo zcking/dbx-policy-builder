@@ -6,7 +6,7 @@ from collections import OrderedDict
 # ===== Attribute Logic Helpers =====
 
 def set_toggle_options(attribute_name: str):
-    at = st.session_state[f'{attribute_name}__attribute_type']
+    at = st.session_state.get(f'{attribute_name}__attribute_type', 'fixed')
     if at in ('fixed', 'forbidden'):
         # Fixed and forbidden attributes don't make sense to set a default value or make optional
         st.session_state['toggle_options'] = ['Hide from UI']

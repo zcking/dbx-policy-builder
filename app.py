@@ -114,7 +114,12 @@ def add_inputs_to_definition():
         st.session_state['overrides'][attribute_name] = st.session_state['inputs']
     else:
         st.session_state['definition'][attribute_name] = st.session_state['inputs']
-    st.session_state.pop(f'{attribute_name}__attribute_type')
+
+    # Remove any staged attribute type selections.
+    for key in st.session_state.keys():
+        if key.endswith('__attribute_type'):
+            st.session_state.pop(key)
+
     st.session_state['attribute_name_select'] = None
     st.session_state['override_attribute_name_select'] = None
     clear_inputs()
